@@ -45,14 +45,10 @@ with st.sidebar:
     list_meses = df_y.sort_values('Mes_Num')['Mes'].unique()
     selected_month = st.selectbox("Selecciona Mes", options=list_meses)
     
-    list_centros = sorted(df['centro_costo'].unique())
-    selected_centro = st.multiselect("Centros de Costo", options=list_centros, default=list_centros)
-
 # --- FILTRADO FINAL ---
 df_selection = df[
     (df['Año'] == selected_year) & 
-    (df['Mes'] == selected_month) & 
-    (df['centro_costo'].isin(selected_centro))
+    (df['Mes'] == selected_month)     
 ].copy()
 
 # --- PANEL DE CONTROL PRINCIPAL ---
@@ -132,5 +128,6 @@ with col_pdv:
     st.write("**Desempeño por Punto de Venta**")
     tabla_p = pd.crosstab(df_selection['centro_costo'], df_selection['TipoProducto'])
     st.dataframe(tabla_p.style.background_gradient(cmap='Greens', axis=None), use_container_width=True)
-
+# --- TABLA RESUMEN ---
+st.dataframe(df_selection)
 
