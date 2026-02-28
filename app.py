@@ -35,9 +35,6 @@ def load_data():
 # Cargar datos
 df = load_data()
 
-st.write(df.shape)        # Si ves (N, 1) en vez de (N, muchas columnas) → es el separador
-st.write(df.columns.tolist())  # Si ves una sola columna rara → confirmado
-
 # --- FILTROS (Sidebar) ---
 st.sidebar.title("🎛️ Filtros")
 with st.sidebar:
@@ -76,7 +73,7 @@ c1, c2 = st.columns(2)
 with c1:
     st.subheader("📊 Participación")
     # Agregación manual para asegurar que Plotly no cuente mal
-    df_p = df_selection['TipoProducto'].value_counts().reset_index()
+    df_p = df_selection.groupby('TipoProducto', as_index=False).size()
     df_p.columns = ['Tipo', 'Unidades']
     
     fig_p = px.pie(df_p, values='Unidades', names='Tipo', hole=0.5,
@@ -88,8 +85,9 @@ with c2:
     st.subheader("🏆 Top 10 Marcas")
     # Filtro de marca y agregación manual
     df_m = df_selection[df_selection['Marca'] != 'TRAIDO'].copy()
-    df_m_count = df_m['Marca'].value_counts().reset_index()
+    df_m_count = df_m.groupby('Marca', as_index=False).size()
     df_m_count.columns = ['Marca', 'Ventas']
+    df_m_count = df_m_count.nlargest(10, 'Ventas').sort_values('Ventas', ascending=True)
     df_m_count = df_m_count.head(10).sort_values('Ventas', ascending=True)
     
     fig_m = px.bar(df_m_count, x='Ventas', y='Marca', orientation='h', text='Ventas',
@@ -101,26 +99,26 @@ with c2:
 # --- GRÁFICO DE TENDENCIA (Solución a la línea recta) ---
 st.subheader("📈 Tendencia Diaria de Ventas")
 
-# 1. Agrupamos por fecha
 df_t = df_selection.copy()
-df_t['fecha_corta'] = df_t['fec_registro'].dt.date
-df_trend = df_t.groupby('fecha_corta').size().reset_index(name='Ventas')
+df_t['fecha_corta'] = df_t['fec_registro'].dt.floor('D')  # Más robusto que .dt.date
+df_trend = df_t.groupby('fecha_corta', as_index=False).size()
+df_trend.columns = ['Fecha', 'Ventas']
+df_trend = df_trend.sort_values('Fecha').reset_index(drop=True)
 
-# 2. ORDENAR CRONOLÓGICAMENTE (Esto evita la línea recta o desordenada)
-df_trend = df_trend.sort_values('fecha_corta')
-
-if not df_trend.empty:
-    fig_t = px.area(df_trend, x='fecha_corta', y='Ventas', 
-                    markers=True, line_shape='spline',
+if not df_trend.empty and len(df_trend) > 1:
+    fig_t = px.area(df_trend, x='Fecha', y='Ventas',
+                    markers=True,
+                    line_shape='linear',  # Sin suavizado artificial
                     color_discrete_sequence=['#00CC96'])
-    
-    # 3. Forzamos al eje X a ser tipo fecha
-    fig_t.update_layout(xaxis_type='date', hovermode="x unified", xaxis_title=None)
-    fig_t.update_traces(hovertemplate="Fecha: %{x}<br>Ventas: %{y}")
+    fig_t.update_layout(
+        xaxis=dict(type='date', tickformat='%d/%m', dtick=86400000),  # Un tick por día
+        hovermode="x unified",
+        xaxis_title=None
+    )
+    fig_t.update_traces(hovertemplate="Fecha: %{x|%d/%m/%Y}<br>Ventas: %{y}<extra></extra>")
     st.plotly_chart(fig_t, use_container_width=True)
 else:
     st.info("No hay datos suficientes para graficar la tendencia.")
-
 # --- TABLAS DE RENDIMIENTO ---
 st.markdown("---")
 col_vend, col_pdv = st.columns([0.6, 0.4])
@@ -134,4 +132,5 @@ with col_pdv:
     st.write("**Desempeño por Punto de Venta**")
     tabla_p = pd.crosstab(df_selection['centro_costo'], df_selection['TipoProducto'])
     st.dataframe(tabla_p.style.background_gradient(cmap='Greens', axis=None), use_container_width=True)
+
 
