@@ -54,12 +54,78 @@ df_selection = df[
 # --- PANEL DE CONTROL PRINCIPAL ---
 st.title(f"🚀 Dashboard de Ventas: {selected_month} {selected_year}")
 
-# Métricas (KPIs)
-m1, m2, m3, m4 = st.columns(4)
-m1.metric("Ventas Totales", f"{len(df_selection):,}")
-m2.metric("Postpagos", f"{len(df_selection[df_selection['Producto']=='Postpagos']):,}")
-m3.metric("Equipos", f"{len(df_selection[df_selection['Producto']=='Equipos']):,}")
-m4.metric("Asesores", len(df_selection['vendedor'].unique()))
+# --- KPI CARDS ---
+st.markdown("""
+<style>
+.card-container {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 20px;
+}
+.card {
+    background: linear-gradient(135deg, #1e3a5f, #2d6a9f);
+    border-radius: 16px;
+    padding: 20px 24px;
+    flex: 1;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+    border-left: 5px solid #00CC96;
+    color: white;
+}
+.card .label {
+    font-size: 13px;
+    color: #a8d0f0;
+    font-weight: 600;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+}
+.card .value {
+    font-size: 36px;
+    font-weight: 800;
+    color: #ffffff;
+    line-height: 1;
+}
+.card .icon {
+    font-size: 22px;
+    margin-bottom: 6px;
+}
+/* Colores del borde izquierdo por tarjeta */
+.card.total  { border-left-color: #00CC96; }
+.card.post   { border-left-color: #636EFA; }
+.card.equip  { border-left-color: #EF553B; }
+.card.asesores { border-left-color: #FECB52; }
+</style>
+""", unsafe_allow_html=True)
+
+total     = len(df_selection)
+postpagos = len(df_selection[df_selection['Producto'] == 'Postpagos'])
+equipos   = len(df_selection[df_selection['Producto'] == 'Equipos'])
+asesores  = df_selection['vendedor'].nunique()
+
+st.markdown(f"""
+<div class="card-container">
+    <div class="card total">
+        <div class="icon">🛒</div>
+        <div class="label">Ventas Totales</div>
+        <div class="value">{total:,}</div>
+    </div>
+    <div class="card post">
+        <div class="icon">📱</div>
+        <div class="label">Postpagos</div>
+        <div class="value">{postpagos:,}</div>
+    </div>
+    <div class="card equip">
+        <div class="icon">📦</div>
+        <div class="label">Equipos</div>
+        <div class="value">{equipos:,}</div>
+    </div>
+    <div class="card asesores">
+        <div class="icon">👥</div>
+        <div class="label">Asesores</div>
+        <div class="value">{asesores:,}</div>
+    </div>
+</div>
+""", unsafe_allow_html=True)
 
 st.markdown("---")
 
@@ -132,6 +198,7 @@ with col_pdv:
 st.markdown("---")
 st.subheader(f"🔡Archivo Detallado")
 st.dataframe(df_selection)
+
 
 
 
