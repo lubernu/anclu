@@ -55,46 +55,6 @@ df_selection = df[
 st.title(f"🚀 Dashboard de Ventas: {selected_month} {selected_year}")
 
 # --- KPI CARDS ---
-# --- CÁLCULO MES ANTERIOR ---
-def get_mes_anterior(year, mes_num):
-    if mes_num == 1:
-        return year - 1, 12
-    return year, mes_num - 1
-
-año_ant, mes_ant_num = get_mes_anterior(selected_year, df[df['Mes'] == selected_month]['Mes_Num'].iloc[0])
-
-df_anterior = df[
-    (df['Año'] == año_ant) &
-    (df['Mes_Num'] == mes_ant_num) &
-    (df['centro_costo'].isin(selected_centro))
-].copy()
-
-# Métricas actuales
-total_act     = len(df_selection)
-post_act      = len(df_selection[df_selection['Producto'] == 'Postpagos'])
-equip_act     = len(df_selection[df_selection['Producto'] == 'Equipos'])
-asesores_act  = df_selection['vendedor'].nunique()
-
-# Métricas mes anterior
-total_ant    = len(df_anterior)
-post_ant     = len(df_anterior[df_anterior['Producto'] == 'Postpagos'])
-equip_ant    = len(df_anterior[df_anterior['Producto'] == 'Equipos'])
-asesores_ant = df_anterior['vendedor'].nunique()
-
-def delta_html(actual, anterior):
-    """Genera el HTML del indicador de cambio"""
-    if anterior == 0:
-        return '<div class="delta neutral">— Sin datos anteriores</div>'
-    diff = actual - anterior
-    pct  = (diff / anterior) * 100
-    if diff > 0:
-        return f'<div class="delta positivo">▲ +{diff:,} &nbsp;(+{pct:.1f}% vs mes ant.)</div>'
-    elif diff < 0:
-        return f'<div class="delta negativo">▼ {diff:,} &nbsp;({pct:.1f}% vs mes ant.)</div>'
-    else:
-        return '<div class="delta neutral">= Sin cambio vs mes ant.</div>'
-
-# --- ESTILOS ---
 st.markdown("""
 <style>
 .card-container {
@@ -112,76 +72,57 @@ st.markdown("""
     color: white;
 }
 .card .label {
-    font-size: 12px;
+    font-size: 13px;
     color: #a8d0f0;
     font-weight: 600;
     letter-spacing: 1px;
     text-transform: uppercase;
-    margin-bottom: 6px;
+    margin-bottom: 8px;
 }
 .card .value {
     font-size: 36px;
     font-weight: 800;
     color: #ffffff;
     line-height: 1;
-    margin-bottom: 10px;
 }
 .card .icon {
     font-size: 22px;
     margin-bottom: 6px;
 }
-.delta {
-    font-size: 12px;
-    font-weight: 600;
-    padding: 4px 8px;
-    border-radius: 20px;
-    display: inline-block;
-}
-.delta.positivo {
-    background-color: rgba(0, 204, 150, 0.2);
-    color: #00CC96;
-}
-.delta.negativo {
-    background-color: rgba(239, 85, 59, 0.2);
-    color: #EF553B;
-}
-.delta.neutral {
-    background-color: rgba(168, 208, 240, 0.15);
-    color: #a8d0f0;
-}
-.card.total    { border-left-color: #00CC96; }
-.card.post     { border-left-color: #636EFA; }
-.card.equip    { border-left-color: #EF553B; }
+/* Colores del borde izquierdo por tarjeta */
+.card.total  { border-left-color: #00CC96; }
+.card.post   { border-left-color: #636EFA; }
+.card.equip  { border-left-color: #EF553B; }
 .card.asesores { border-left-color: #FECB52; }
 </style>
 """, unsafe_allow_html=True)
 
-# --- TARJETAS ---
+total     = len(df_selection)
+postpagos = len(df_selection[df_selection['Producto'] == 'Postpagos'])
+equipos   = len(df_selection[df_selection['Producto'] == 'Equipos'])
+asesores  = df_selection['vendedor'].nunique()
+
 st.markdown(f"""
 <div class="card-container">
     <div class="card total">
         <div class="icon">🛒</div>
         <div class="label">Ventas Totales</div>
-        <div class="value">{total_act:,}</div>
-        {delta_html(total_act, total_ant)}
+        <div class="value">{total:,}</div>
     </div>
     <div class="card post">
         <div class="icon">📱</div>
         <div class="label">Postpagos</div>
-        <div class="value">{post_act:,}</div>
-        {delta_html(post_act, post_ant)}
+        <div class="value">{postpagos:,}</div>
     </div>
     <div class="card equip">
         <div class="icon">📦</div>
         <div class="label">Equipos</div>
-        <div class="value">{equip_act:,}</div>
-        {delta_html(equip_act, equip_ant)}
+        <div class="value">{equipos:,}</div>
     </div>
     <div class="card asesores">
         <div class="icon">👥</div>
         <div class="label">Asesores</div>
-        <div class="value">{asesores_act:,}</div>
-        {delta_html(asesores_act, asesores_ant)}
+        <div class="value">{asesores:,}</div>
     </div>
 </div>
 """, unsafe_allow_html=True)
@@ -257,6 +198,7 @@ with col_pdv:
 st.markdown("---")
 st.subheader(f"🔡Archivo Detallado")
 st.dataframe(df_selection)
+
 
 
 
