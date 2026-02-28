@@ -105,29 +105,23 @@ with col_brand:
     st.plotly_chart(fig_brands, use_container_width=True)
 
 # Evolución Temporal Corregida
+# Reemplaza tu bloque de "Evolución Temporal" con este:
 st.subheader("📈 Tendencia Diaria de Ventas")
 
-# Agrupar por fecha y contar registros
-df_timeline = df_selection.groupby(df_selection['fec_registro'].dt.date).size().reset_index(name='Ventas')
+# Aseguramos que la fecha sea solo día (sin hora) y sumamos
+df_timeline = df_selection.copy()
+df_timeline['fecha_dia'] = df_timeline['fec_registro'].dt.date
+df_timeline = df_timeline.groupby('fecha_dia').size().reset_index(name='Ventas')
+df_timeline = df_timeline.sort_values('fecha_dia') # Ordenar cronológicamente
 
-# El parámetro correcto es 'spline' para líneas suavizadas
 fig_time = px.area(
     df_timeline, 
-    x='fec_registro', 
+    x='fecha_dia', 
     y='Ventas', 
-    line_shape='spline',  # <-- Cambio aquí: de 'smooth' a 'spline'
+    line_shape='spline',
     color_discrete_sequence=['#00CC96']
 )
-
-# Mejorar el diseño del eje X para que sea legible
-fig_time.update_layout(
-    xaxis_title="Fecha de Registro",
-    yaxis_title="Cantidad de Ventas",
-    hovermode="x unified"
-)
-
 st.plotly_chart(fig_time, use_container_width=True)
-
 # Ventas por asesor y pdv
 st.subheader("📈 Vendedores y PDV")
 
@@ -150,4 +144,5 @@ with col2:
 
 # Mostrar el dataframe original filtrado )
 st.subheader('Detallado General')
+
 st.dataframe(df_selection)
