@@ -4,27 +4,29 @@ import plotly.express as px
 import numpy as np
 
 # 1. Configuración de página
-st.set_page_config(page_title="Ventas Anclu | BI", layout="wide")
+st.set_page_config(page_title="Ventas Anclu | Dashboard Profesional", layout="wide")
 
 @st.cache_data
 def load_data():
-    # El warning se quita con low_memory=False y forzamos que lea todo bien
+    # Cargamos con low_memory=False para evitar errores de tipo de dato en la nube
     df = pd.read_csv("ventas_anclu.csv", low_memory=False)
     
-    # LIMPIEZA CRÍTICA DE FECHAS
+    # Limpieza de fechas: forzamos formato datetime
     df['fec_registro'] = pd.to_datetime(df['fec_registro'], errors='coerce')
-    df = df.dropna(subset=['fec_registro']) # Eliminamos filas con fechas rotas
+    df = df.dropna(subset=['fec_registro']) # Quitamos filas sin fecha
     
+    # Extraemos tiempo
     df['Año'] = df['fec_registro'].dt.year
     df['Mes_Num'] = df['fec_registro'].dt.month
     
-    meses_es = {1: "Enero", 2: "Febrero", 3: "Marzo", 4: "Abril", 5: "Mayo", 6: "Junio", 
-                7: "Julio", 8: "Agosto", 9: "Septiembre", 10: "Octubre", 11: "Noviembre", 12: "Diciembre"}
+    meses_es = {
+        1: "Enero", 2: "Febrero", 3: "Marzo", 4: "Abril", 5: "Mayo", 6: "Junio", 
+        7: "Julio", 8: "Agosto", 9: "Septiembre", 10: "Octubre", 11: "Noviembre", 12: "Diciembre"
+    }
     df['Mes'] = df['Mes_Num'].map(meses_es)
     
-    # LIMPIEZA DE MARCAS Y PRODUCTOS
-    df['Marca'] = df['Marca'].fillna('SIN MARCA').astype(str).str.upper().str.strip()
-    df['TipoProducto'] = df['TipoProducto'].fillna('OTROS').astype(str).str.strip()
+    # Limpieza profunda de Marca (Quitar nulos, espacios y pasar a Mayúsculas)
+    df['Marca'] = df['Marca'].fillna('SIN MARCA').astype(str).str.strip().str.upper()
     
     # Clasificación de Producto
     condicion = df['TipoProducto'].isin(['Kit Contado', 'Reposición', 'Kit Cuotas'])
@@ -34,68 +36,101 @@ def load_data():
 
 df = load_data()
 
-# --- SIDEBAR ---
-st.sidebar.title("🎛️ Filtros")
+# --- BARRA LATERAL (FILTROS) ---
+st.sidebar.title("🎛️ Filtros de Control")
 with st.sidebar:
-    selected_year = st.selectbox("Año", options=sorted(df['Año'].unique(), reverse=True))
+    anios = sorted(df['Año'].unique(), reverse=True)
+    selected_year = st.selectbox("Año Fiscal", options=anios)
+    
     df_year = df[df['Año'] == selected_year]
-    selected_month = st.selectbox("Mes", options=df_year.sort_values('Mes_Num')['Mes'].unique())
-    selected_centro = st.multiselect("Centro de Costo", options=sorted(df['centro_costo'].unique()), default=df['centro_costo'].unique())
+    meses = df_year.sort_values('Mes_Num')['Mes'].unique()
+    selected_month = st.selectbox("Selecciona Mes", options=meses)
+    
+    centros = sorted(df['centro_costo'].unique())
+    selected_centro = st.multiselect("Centros de Costo", options=centros, default=centros)
 
-# FILTRADO
-df_selection = df[(df['Año'] == selected_year) & 
-                  (df['Mes'] == selected_month) & 
-                  (df['centro_costo'].isin(selected_centro))].copy()
+# --- APLICAR FILTROS ---
+df_selection = df[
+    (df['Año'] == selected_year) & 
+    (df['Mes'] == selected_month) & 
+    (df['centro_costo'].isin(selected_centro))
+].copy()
 
-# --- DASHBOARD ---
-st.title("🚀 Dashboard de Ventas")
+# --- CABECERA ---
+st.title("🚀 Dashboard de Gestión de Ventas")
+st.markdown(f"🗓️ **Viendo datos de:** {selected_month} {selected_year}")
 
 # KPIs
-c1, c2, c3, c4 = st.columns(4)
-c1.metric("Total Ventas", len(df_selection))
-c2.metric("Postpagos", len(df_selection[df_selection['Producto'] == 'Postpagos']))
-c3.metric("Equipos", len(df_selection[df_selection['Producto'] == 'Equipos']))
-c4.metric("Vendedores", len(df_selection['vendedor'].unique()))
+m1, m2, m3, m4 = st.columns(4)
+m1.metric("Total Ventas", f"{len(df_selection):,}")
+m2.metric("Postpagos", f"{len(df_selection[df_selection['Producto']=='Postpagos']):,}")
+m3.metric("Equipos", f"{len(df_selection[df_selection['Producto']=='Equipos']):,}")
+m4.metric("Vendedores Activos", len(df_selection['vendedor'].unique()))
 
 st.markdown("---")
 
-col_left, col_right = st.columns([1, 1.2])
+# --- GRÁFICOS: PARTICIPACIÓN Y TOP MARCAS ---
+col_pie, col_bar = st.columns([1, 1.2])
 
-with col_left:
-    st.subheader("📊 Participación")
-    # FORZAMOS CONTEO REAL
-    fig_pie = px.pie(df_selection, names='TipoProducto', hole=0.5,
-                     color_discrete_sequence=px.colors.qualitative.Safe)
-    fig_pie.update_traces(textinfo='value+percent') # 'value' muestra las unidades
+with col_pie:
+    st.subheader("📊 Participación por Tipo")
+    # Agrupamos para asegurar que Plotly vea los totales
+    resumen_prod = df_selection.groupby('TipoProducto').size().reset_index(name='Unidades')
+    fig_pie = px.pie(resumen_prod, values='Unidades', names='TipoProducto', 
+                     hole=0.5, color_discrete_sequence=px.colors.qualitative.Pastel)
+    fig_pie.update_traces(textinfo='value+percent')
     st.plotly_chart(fig_pie, use_container_width=True)
 
-with col_right:
-    st.subheader("🏆 Top Marcas")
+with col_bar:
+    st.subheader("🏆 Top 10 Marcas (Sin 'TRAIDO')")
+    # Filtro estricto para excluir 'TRAIDO'
     df_marcas = df_selection[df_selection['Marca'] != 'TRAIDO'].copy()
-    # Agrupamos manualmente para asegurar que el eje X sea numérico
-    marcas_count = df_marcas['Marca'].value_counts().reset_index()
-    marcas_count.columns = ['Marca', 'Unidades']
-    marcas_count = marcas_count.head(10).sort_values('Unidades', ascending=True)
     
-    fig_brands = px.bar(marcas_count, x='Unidades', y='Marca', orientation='h',
-                        text='Unidades', color='Unidades', color_continuous_scale='Blues')
-    st.plotly_chart(fig_brands, use_container_width=True)
+    # Agrupamos y contamos unidades
+    resumen_marcas = df_marcas.groupby('Marca').size().reset_index(name='Ventas')
+    resumen_marcas = resumen_marcas.sort_values('Ventas', ascending=True).tail(10) # Las 10 más altas
+    
+    fig_marcas = px.bar(resumen_marcas, x='Ventas', y='Marca', orientation='h',
+                        text='Ventas', color='Ventas', color_continuous_scale='Blues')
+    fig_marcas.update_layout(showlegend=False, yaxis_title=None, xaxis_title="Unidades")
+    st.plotly_chart(fig_marcas, use_container_width=True)
 
-# TENDENCIA (Solución definitiva al gráfico lineal raro)
-st.subheader("📈 Tendencia Diaria")
-df_selection['fecha_solo_dia'] = df_selection['fec_registro'].dt.normalize() # Quita horas/minutos
-df_trend = df_selection.groupby('fecha_solo_dia').size().reset_index(name='Ventas')
+# --- GRÁFICO DE TENDENCIA DIARIA ---
+st.subheader("📈 Tendencia Diaria de Ventas")
 
-fig_trend = px.area(df_trend, x='fecha_solo_dia', y='Ventas', line_shape='spline')
-fig_trend.update_xaxes(dtick="D1", tickformat="%d %b") # Fuerza a mostrar días
-st.plotly_chart(fig_trend, use_container_width=True)
+if not df_selection.empty:
+    # 1. Normalizamos la fecha a solo DIA para agrupar correctamente
+    df_trend = df_selection.copy()
+    df_trend['fecha_dia'] = df_trend['fec_registro'].dt.date
+    
+    # 2. Agrupamos y contamos
+    df_trend = df_trend.groupby('fecha_dia').size().reset_index(name='Ventas')
+    
+    # 3. ORDENAR POR FECHA (Vital para que la línea no sea recta o cruzada)
+    df_trend = df_trend.sort_values('fecha_dia')
+    
+    # 4. Crear gráfico
+    fig_trend = px.area(df_trend, x='fecha_dia', y='Ventas', 
+                        line_shape='spline', markers=True,
+                        color_discrete_sequence=['#00CC96'])
+    
+    # 5. Forzamos al eje X a ser temporal para que no salte días
+    fig_trend.update_xaxes(type='date', tickformat="%d %b")
+    st.plotly_chart(fig_trend, use_container_width=True)
+else:
+    st.warning("No hay datos para la selección actual.")
 
-# TABLAS
-st.subheader("📈 Detalle por Vendedor y PDV")
-col_v, col_p = st.columns([0.6, 0.4])
-with col_v:
-    t_vendedor = pd.crosstab(df_selection['vendedor'], df_selection['TipoProducto'])
-    st.dataframe(t_vendedor.style.background_gradient(cmap='Blues', axis=None), use_container_width=True)
-with col_p:
-    t_pdv = pd.crosstab(df_selection['centro_costo'], df_selection['TipoProducto'])
-    st.dataframe(t_pdv.style.background_gradient(cmap='Greens', axis=None), use_container_width=True)
+# --- TABLAS DE DETALLE ---
+st.markdown("---")
+st.subheader("📋 Resumen por Asesor y Punto de Venta")
+c_v, c_p = st.columns([0.6, 0.4])
+
+with c_v:
+    st.markdown("**Ventas por Vendedor**")
+    tabla_v = pd.crosstab(df_selection['vendedor'], df_selection['TipoProducto'])
+    st.dataframe(tabla_v.style.background_gradient(cmap='Blues', axis=None), use_container_width=True)
+
+with c_p:
+    st.markdown("**Ventas por Centro de Costo**")
+    tabla_p = pd.crosstab(df_selection['centro_costo'], df_selection['TipoProducto'])
+    st.dataframe(tabla_p.style.background_gradient(cmap='Greens', axis=None), use_container_width=True)
