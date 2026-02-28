@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-import plotly.express as px  # <-- Nueva librería para gráficos
+import plotly.express as px
 
 # Configuración básica
 st.set_page_config(page_title="Paso 3: Gráficos - Anclu", layout="wide")
@@ -21,7 +21,7 @@ def load_data():
 
 df = load_data()
 
-# --- SIDEBAR (Filtros del Paso 2) ---
+# --- SIDEBAR ---
 st.sidebar.title("🎛️ Filtros")
 selected_year = st.sidebar.selectbox("Año", options=sorted(df['Año'].unique(), reverse=True))
 df_year = df[df['Año'] == selected_year]
@@ -33,45 +33,48 @@ df_selection = df[(df['Año'] == selected_year) & (df['Mes'] == selected_month)]
 # --- PANEL PRINCIPAL ---
 st.title(f"📊 Dashboard: {selected_month} {selected_year}")
 
-# --- NUEVO EN PASO 3: Layout de 2 Columnas para Gráficos ---
 col1, col2 = st.columns([1, 1.2])
 
 with col1:
     st.subheader("📌 Participación por Producto")
-    # Agrupamos manualmente para asegurar que los números sean exactos
-    counts_prod = df_selection.groupby('TipoProducto').size().reset_index(name='Ventas')
     
-    if not counts_prod.empty:
-        fig_pie = px.pie(counts_prod, 
-                         values='Ventas', 
+    # FORMA REFORZADA: Contamos con Pandas primero
+    # Usamos una columna que siempre tenga datos (cc_vendedor) para contar filas
+    df_participacion = df_selection.groupby('TipoProducto')['cc_vendedor'].count().reset_index()
+    df_participacion.columns = ['TipoProducto', 'Cantidad_Real']
+    
+    if not df_participacion.empty:
+        # Ahora le pasamos a Plotly la columna 'Cantidad_Real'
+        fig_pie = px.pie(df_participacion, 
+                         values='Cantidad_Real', 
                          names='TipoProducto', 
                          hole=0.5,
                          color_discrete_sequence=px.colors.qualitative.Safe)
-        # Mostramos valor real y porcentaje
-        fig_pie.update_traces(textinfo='value+percent')
+        
+        # Obligamos a mostrar el valor entero y el porcentaje
+        fig_pie.update_traces(textinfo='value+percent', textfont_size=14)
         st.plotly_chart(fig_pie, use_container_width=True)
-    else:
-        st.write("No hay datos para este mes.")
 
 with col2:
     st.subheader("🏆 Top 10 Marcas")
-    # Filtramos para quitar 'TRAIDO' y que no ensucie el ranking
-    df_marcas = df_selection[df_selection['Marca'] != 'TRAIDO'].copy()
     
-    # Agrupamos, contamos y ordenamos
-    counts_brand = df_marcas.groupby('Marca').size().reset_index(name='Unidades')
-    counts_brand = counts_brand.sort_values('Unidades', ascending=True).tail(10)
+    # Filtramos 'TRAIDO'
+    df_solo_marcas = df_selection[df_selection['Marca'] != 'TRAIDO'].copy()
     
-    if not counts_brand.empty:
-        fig_bar = px.bar(counts_brand, 
-                         x='Unidades', 
+    # FORMA REFORZADA: Contamos con Pandas primero
+    df_ranking = df_solo_marcas.groupby('Marca')['cc_vendedor'].count().reset_index()
+    df_ranking.columns = ['Marca', 'Unidades_Vendidas']
+    df_ranking = df_ranking.sort_values('Unidades_Vendidas', ascending=True).tail(10)
+    
+    if not df_ranking.empty:
+        # Usamos 'Unidades_Vendidas' para el eje X
+        fig_bar = px.bar(df_ranking, 
+                         x='Unidades_Vendidas', 
                          y='Marca', 
                          orientation='h',
-                         text='Unidades', # Muestra el número sobre la barra
-                         color='Unidades',
+                         text='Unidades_Vendidas',
+                         color='Unidades_Vendidas',
                          color_continuous_scale='Blues')
         
         fig_bar.update_layout(yaxis_title=None, showlegend=False)
         st.plotly_chart(fig_bar, use_container_width=True)
-    else:
-        st.write("No hay marcas para mostrar (sin contar 'Traido').")
