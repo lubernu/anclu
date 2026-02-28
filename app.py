@@ -86,8 +86,8 @@ col_prod, col_brand = st.columns([1, 1.2])
 
 with col_prod:
     st.subheader("📊 Participación por Producto")
-    # Agrupación correcta para que cuente unidades reales
-    prod_counts = df_selection.groupby('TipoProducto').size().reset_index(name='Cantidad')
+    # Usamos reset_index() y contamos una columna específica que sabemos que no tiene nulos
+    prod_counts = df_selection.groupby('TipoProducto')['vendedor'].count().reset_index(name='Cantidad')
     
     fig_pie = px.pie(prod_counts, 
                      values='Cantidad', 
@@ -95,15 +95,14 @@ with col_prod:
                      hole=0.5, 
                      color_discrete_sequence=px.colors.qualitative.Safe)
     
-    # Forzamos a mostrar valor absoluto y porcentaje
     fig_pie.update_traces(textinfo='value+percent', textfont_size=12)
     st.plotly_chart(fig_pie, use_container_width=True)
-
+    
 with col_brand:
     st.subheader("🏆 Top Marcas Vendidas")
-    # Filtramos "TRAIDO" y agrupamos por unidades
-    df_marcas = df_selection[df_selection['Marca'] != 'TRAIDO']
-    top_marcas = df_marcas.groupby('Marca').size().reset_index(name='Unidades')
+    df_marcas = df_selection[df_selection['Marca'] != 'TRAIDO'].copy()
+    # Contamos sobre la columna 'vendedor' para asegurar que sume unidades
+    top_marcas = df_marcas.groupby('Marca')['vendedor'].count().reset_index(name='Unidades')
     top_marcas = top_marcas.sort_values('Unidades', ascending=True).tail(10)
     
     fig_brands = px.bar(top_marcas, 
@@ -114,9 +113,9 @@ with col_brand:
                         color_continuous_scale='Blues',
                         text='Unidades')
     
-    fig_brands.update_layout(showlegend=False, yaxis_title=None, xaxis_title="Unidades Vendidas")
+    fig_brands.update_layout(showlegend=False, yaxis_title=None)
     st.plotly_chart(fig_brands, use_container_width=True)
-
+    
 # --- 3. TENDENCIA DIARIA CORREGIDA ---
 st.subheader("📈 Tendencia Diaria de Ventas")
 
@@ -163,3 +162,4 @@ with col2:
 # Vista Detallada
 with st.expander("🔍 Ver Detallado General de Transacciones"):
     st.dataframe(df_selection, use_container_width=True)
+
