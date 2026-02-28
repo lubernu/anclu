@@ -35,6 +35,9 @@ def load_data():
 # Cargar datos
 df = load_data()
 
+st.write(df.shape)        # Si ves (N, 1) en vez de (N, muchas columnas) → es el separador
+st.write(df.columns.tolist())  # Si ves una sola columna rara → confirmado
+
 # --- FILTROS (Sidebar) ---
 st.sidebar.title("🎛️ Filtros")
 with st.sidebar:
@@ -131,3 +134,4 @@ with col_pdv:
     st.write("**Desempeño por Punto de Venta**")
     tabla_p = pd.crosstab(df_selection['centro_costo'], df_selection['TipoProducto'])
     st.dataframe(tabla_p.style.background_gradient(cmap='Greens', axis=None), use_container_width=True)
+
