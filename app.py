@@ -16,7 +16,10 @@ st.markdown("""
 
 @st.cache_data
 def load_data():
+    # RUTA RELATIVA PARA GITHUB
     df = pd.read_csv("ventas_anclu.csv")
+    
+    # Procesamiento de fechas
     df['fec_registro'] = pd.to_datetime(df['fec_registro'])
     df['Año'] = df['fec_registro'].dt.year
     df['Mes_Num'] = df['fec_registro'].dt.month
@@ -27,9 +30,12 @@ def load_data():
         9: "Septiembre", 10: "Octubre", 11: "Noviembre", 12: "Diciembre"
     }
     df['Mes'] = df['Mes_Num'].map(meses_es)
+    
+    # Limpieza de Marca y Valores
     df['Marca'] = df['Marca'].fillna('SIN MARCA').str.upper()
     df['valor_plan_'] = pd.to_numeric(df['valor_plan_'], errors='coerce').fillna(0)
 
+    # Clasificación de Producto
     condicion = df['TipoProducto'].isin(['Kit Contado', 'Reposición', 'Kit Cuotas'])
     df['Producto'] = np.where(condicion, 'Equipos', 'Postpagos')
 
@@ -40,79 +46,85 @@ df = load_data()
 # --- 1. FILTROS DESPLEGABLES (Sidebar) ---
 st.sidebar.title("🎛️ Filtros de Control")
 
-# Agrupamos los filtros en un expander si quieres que la sidebar sea aún más limpia
 with st.sidebar:
     # Año (Selección única)
-    selected_year = st.selectbox("Año Fiscal", options=sorted(df['Año'].unique(), reverse=True))
+    list_anios = sorted(df['Año'].unique(), reverse=True)
+    selected_year = st.selectbox("Año Fiscal", options=list_anios)
     
-    # Mes (Multiselect pero actúa como desplegable)
+    # Mes (Selección única o múltiple - usando selectbox para orden)
     df_year = df[df['Año'] == selected_year]
     list_meses = df_year.sort_values('Mes_Num')['Mes'].unique()
-    selected_month = st.selectbox("Meses", options=list_meses, index=0)
-    #selected_month = st.multiselect("Meses", options=list_meses, default=list_meses)
+    selected_month = st.selectbox("Mes", options=list_meses, index=0)
+
+    # Centro de Costo (Multiselect que actúa como desplegable)
+    list_centros = sorted(df['centro_costo'].unique())
+    selected_centro = st.multiselect("Centro de Costo", options=list_centros, default=list_centros)
 
 # Aplicar filtros
 df_selection = df.query(
-    "Año == @selected_year & Mes == @selected_month"
+    "Año == @selected_year & Mes == @selected_month & centro_costo == @selected_centro"
 )
 
 # --- PANEL PRINCIPAL ---
 st.title("🚀 Dashboard de Gestión de Ventas")
-st.markdown(f"**Periodo:** {selected_year} | {', '.join(selected_month[:3])}...")
+st.markdown(f"**Periodo Actual:** {selected_month} de {selected_year}")
 
+# Cálculo de métricas
 cantPost = (df_selection['Producto'] == 'Postpagos').sum()
 cantEquip = (df_selection['Producto'] == 'Equipos').sum()
-# Métricas rápidas
+
 m1, m2, m3, m4 = st.columns(4)
 m1.metric("Total Ventas", f"{len(df_selection):,}")
-m2.metric("Postpagos", cantPost)
-m3.metric("Equipos", cantEquip)
+m2.metric("Postpagos", f"{cantPost:,}")
+m3.metric("Equipos", f"{cantEquip:,}")
 m4.metric("Vendedores Activos", len(df_selection['vendedor'].unique()))
 
 st.markdown("---")
 
-# --- 2. PARTICIPACIÓN POR TIPO DE PRODUCTO ---
+# --- 2. PARTICIPACIÓN Y TOP MARCAS ---
 col_prod, col_brand = st.columns([1, 1.2])
 
 with col_prod:
     st.subheader("📊 Participación por Producto")
-    # Calculamos el % de participación
-    prod_counts = df_selection['TipoProducto'].value_counts().reset_index()
-    prod_counts.columns = ['TipoProducto', 'Cantidad']
-    prod_counts['%'] = (prod_counts['Cantidad'] / prod_counts['Cantidad'].sum() * 100).round(1)
+    # Agrupación correcta para que cuente unidades reales
+    prod_counts = df_selection.groupby('TipoProducto').size().reset_index(name='Cantidad')
     
-    # Gráfico de Dona para participación
-    fig_pie = px.pie(prod_counts, values='Cantidad', names='TipoProducto', 
+    fig_pie = px.pie(prod_counts, 
+                     values='Cantidad', 
+                     names='TipoProducto', 
                      hole=0.5, 
-                     color_discrete_sequence=px.colors.qualitative.Safe,
-                     hover_data=['%'])
-    fig_pie.update_traces(textposition='inside', textinfo='percent+label')
+                     color_discrete_sequence=px.colors.qualitative.Safe)
+    
+    # Forzamos a mostrar valor absoluto y porcentaje
+    fig_pie.update_traces(textinfo='value+percent', textfont_size=12)
     st.plotly_chart(fig_pie, use_container_width=True)
 
-# --- 3. TOP MARCAS (SIN "TRAIDO") ---
 with col_brand:
     st.subheader("🏆 Top Marcas Vendidas")
-    # Filtramos "TRAIDO" según tu solicitud
+    # Filtramos "TRAIDO" y agrupamos por unidades
     df_marcas = df_selection[df_selection['Marca'] != 'TRAIDO']
+    top_marcas = df_marcas.groupby('Marca').size().reset_index(name='Unidades')
+    top_marcas = top_marcas.sort_values('Unidades', ascending=True).tail(10)
     
-    top_marcas = df_marcas.groupby('Marca').size().reset_index(name='Ventas')
-    top_marcas = top_marcas.sort_values('Ventas', ascending=True).tail(10) # Top 10
+    fig_brands = px.bar(top_marcas, 
+                        x='Unidades', 
+                        y='Marca', 
+                        orientation='h',
+                        color='Unidades', 
+                        color_continuous_scale='Blues',
+                        text='Unidades')
     
-    fig_brands = px.bar(top_marcas, x='Ventas', y='Marca', orientation='h',
-                        color='Ventas', color_continuous_scale='Blues',
-                        text_auto='.2s')
-    fig_brands.update_layout(showlegend=False, yaxis_title=None)
+    fig_brands.update_layout(showlegend=False, yaxis_title=None, xaxis_title="Unidades Vendidas")
     st.plotly_chart(fig_brands, use_container_width=True)
 
-# Evolución Temporal Corregida
-# Reemplaza tu bloque de "Evolución Temporal" con este:
+# --- 3. TENDENCIA DIARIA CORREGIDA ---
 st.subheader("📈 Tendencia Diaria de Ventas")
 
-# Aseguramos que la fecha sea solo día (sin hora) y sumamos
+# Agrupamos por día asegurando que no haya huecos o errores de línea
 df_timeline = df_selection.copy()
 df_timeline['fecha_dia'] = df_timeline['fec_registro'].dt.date
 df_timeline = df_timeline.groupby('fecha_dia').size().reset_index(name='Ventas')
-df_timeline = df_timeline.sort_values('fecha_dia') # Ordenar cronológicamente
+df_timeline = df_timeline.sort_values('fecha_dia')
 
 fig_time = px.area(
     df_timeline, 
@@ -121,28 +133,33 @@ fig_time = px.area(
     line_shape='spline',
     color_discrete_sequence=['#00CC96']
 )
-st.plotly_chart(fig_time, use_container_width=True)
-# Ventas por asesor y pdv
-st.subheader("📈 Vendedores y PDV")
 
-# Crear tablas de contingencia con los datos filtrados
-conteo_vendedor_tipo = pd.crosstab(df_selection['vendedor'], df_selection['TipoProducto'])
+fig_time.update_layout(
+    xaxis_title="Día del Mes",
+    yaxis_title="Cantidad de Registros",
+    hovermode="x unified"
+)
+st.plotly_chart(fig_time, use_container_width=True)
+
+# --- 4. TABLAS DE RENDIMIENTO ---
+st.subheader("📈 Análisis por Vendedor y PDV")
+
+# Tablas de contingencia
+conteo_vendedor = pd.crosstab(df_selection['vendedor'], df_selection['TipoProducto'])
 conteo_pdv = pd.crosstab(df_selection['centro_costo'], df_selection['TipoProducto'])
 
-# Aplicar estilo: gradiente de fondo y formato entero
-styled_vendedor = conteo_vendedor_tipo.style.background_gradient(cmap='Blues', axis=None).format(precision=0)
+# Aplicar estilos (Requiere matplotlib en requirements.txt)
+styled_vendedor = conteo_vendedor.style.background_gradient(cmap='Blues', axis=None).format(precision=0)
 styled_pdv = conteo_pdv.style.background_gradient(cmap='Greens', axis=None).format(precision=0)
 
-# Mostrar en columnas
-col1, col2 = st.columns([.6,.4])
+col1, col2 = st.columns([0.6, 0.4])
 with col1:
-    st.markdown("**Conteo por Vendedor**")
+    st.markdown("**Desempeño por Vendedor**")
     st.dataframe(styled_vendedor, use_container_width=True)
 with col2:
-    st.markdown("**Conteo por Centro de Costo (PDV)**")
+    st.markdown("**Desempeño por Centro de Costo**")
     st.dataframe(styled_pdv, use_container_width=True)
 
-# Mostrar el dataframe original filtrado )
-st.subheader('Detallado General')
-
-st.dataframe(df_selection)
+# Vista Detallada
+with st.expander("🔍 Ver Detallado General de Transacciones"):
+    st.dataframe(df_selection, use_container_width=True)
