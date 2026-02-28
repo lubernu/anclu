@@ -129,7 +129,9 @@ with col_pdv:
     tabla_p = pd.crosstab(df_selection['centro_costo'], df_selection['TipoProducto'])
     st.dataframe(tabla_p.style.background_gradient(cmap='Greens', axis=None), use_container_width=True)
 # --- TABLA RESUMEN ---
-st.subheader(f"Archivo Detallado")
+st.markdown("---")
+st.subheader(f"🔡Archivo Detallado")
 st.dataframe(df_selection)
+
 
 
