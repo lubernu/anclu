@@ -3,78 +3,87 @@ import pandas as pd
 import numpy as np
 import plotly.express as px
 
-# Configuración básica
-st.set_page_config(page_title="Paso 3: Gráficos - Anclu", layout="wide")
+# 1. Configuración de página
+st.set_page_config(page_title="Paso 3: Consolidación - Anclu", layout="wide")
 
 @st.cache_data
 def load_data():
+    # Cargamos forzando que no intente adivinar tipos (low_memory=False)
     df = pd.read_csv("ventas_anclu.csv", low_memory=False)
     df['fec_registro'] = pd.to_datetime(df['fec_registro'], errors='coerce')
     df = df.dropna(subset=['fec_registro'])
+    
     df['Año'] = df['fec_registro'].dt.year
     df['Mes_Num'] = df['fec_registro'].dt.month
+    
     meses_es = {1: "Enero", 2: "Febrero", 3: "Marzo", 4: "Abril", 5: "Mayo", 6: "Junio", 
                 7: "Julio", 8: "Agosto", 9: "Septiembre", 10: "Octubre", 11: "Noviembre", 12: "Diciembre"}
     df['Mes'] = df['Mes_Num'].map(meses_es)
+    
+    # Limpieza absoluta de Marca y Producto
     df['Marca'] = df['Marca'].fillna('SIN MARCA').astype(str).str.upper().str.strip()
+    df['TipoProducto'] = df['TipoProducto'].fillna('OTROS').astype(str).str.strip()
+    
     return df
 
 df = load_data()
 
-# --- SIDEBAR ---
+# --- FILTROS SIDEBAR ---
 st.sidebar.title("🎛️ Filtros")
 selected_year = st.sidebar.selectbox("Año", options=sorted(df['Año'].unique(), reverse=True))
 df_year = df[df['Año'] == selected_year]
 selected_month = st.sidebar.selectbox("Mes", options=df_year.sort_values('Mes_Num')['Mes'].unique())
 
-# Filtro aplicado
+# Filtro del DataFrame
 df_selection = df[(df['Año'] == selected_year) & (df['Mes'] == selected_month)].copy()
 
-# --- PANEL PRINCIPAL ---
 st.title(f"📊 Dashboard: {selected_month} {selected_year}")
+st.write(f"Registros en este periodo: **{len(df_selection)}**")
 
-col1, col2 = st.columns([1, 1.2])
+# --- PASO 3: GRÁFICOS CON CONTEO MANUAL ---
+col1, col2 = st.columns(2)
 
 with col1:
-    st.subheader("📌 Participación por Producto")
+    st.subheader("📌 Participación")
+    # CONTEO MANUAL: Creamos una tabla de frecuencias
+    # value_counts() devuelve los números reales de cada categoría
+    tabla_participacion = df_selection['TipoProducto'].value_counts().reset_index()
+    tabla_participacion.columns = ['Producto', 'Cantidad']
     
-    # FORMA REFORZADA: Contamos con Pandas primero
-    # Usamos una columna que siempre tenga datos (cc_vendedor) para contar filas
-    df_participacion = df_selection.groupby('TipoProducto')['cc_vendedor'].count().reset_index()
-    df_participacion.columns = ['TipoProducto', 'Cantidad_Real']
+    # Graficamos usando la tabla que YA tiene los números sumados
+    fig_pie = px.pie(tabla_participacion, 
+                     values='Cantidad', 
+                     names='Producto', 
+                     hole=0.5,
+                     color_discrete_sequence=px.colors.qualitative.Pastel)
     
-    if not df_participacion.empty:
-        # Ahora le pasamos a Plotly la columna 'Cantidad_Real'
-        fig_pie = px.pie(df_participacion, 
-                         values='Cantidad_Real', 
-                         names='TipoProducto', 
-                         hole=0.5,
-                         color_discrete_sequence=px.colors.qualitative.Safe)
-        
-        # Obligamos a mostrar el valor entero y el porcentaje
-        fig_pie.update_traces(textinfo='value+percent', textfont_size=14)
-        st.plotly_chart(fig_pie, use_container_width=True)
+    # Forzamos a que muestre el valor numérico (la cantidad real)
+    fig_pie.update_traces(textinfo='value+percent', textfont_size=15)
+    st.plotly_chart(fig_pie, use_container_width=True)
 
 with col2:
     st.subheader("🏆 Top 10 Marcas")
+    # Filtramos TRAIDO antes de contar
+    df_marcas_reales = df_selection[df_selection['Marca'] != 'TRAIDO'].copy()
     
-    # Filtramos 'TRAIDO'
-    df_solo_marcas = df_selection[df_selection['Marca'] != 'TRAIDO'].copy()
+    # CONTEO MANUAL
+    tabla_marcas = df_marcas_reales['Marca'].value_counts().reset_index()
+    tabla_marcas.columns = ['Marca', 'Ventas']
+    tabla_marcas = tabla_marcas.head(10).sort_values('Ventas', ascending=True)
     
-    # FORMA REFORZADA: Contamos con Pandas primero
-    df_ranking = df_solo_marcas.groupby('Marca')['cc_vendedor'].count().reset_index()
-    df_ranking.columns = ['Marca', 'Unidades_Vendidas']
-    df_ranking = df_ranking.sort_values('Unidades_Vendidas', ascending=True).tail(10)
+    # Graficamos usando la columna 'Ventas' que nosotros calculamos
+    fig_bar = px.bar(tabla_marcas, 
+                     x='Ventas', 
+                     y='Marca', 
+                     orientation='h',
+                     text='Ventas',
+                     color='Ventas',
+                     color_continuous_scale='Blues')
     
-    if not df_ranking.empty:
-        # Usamos 'Unidades_Vendidas' para el eje X
-        fig_bar = px.bar(df_ranking, 
-                         x='Unidades_Vendidas', 
-                         y='Marca', 
-                         orientation='h',
-                         text='Unidades_Vendidas',
-                         color='Unidades_Vendidas',
-                         color_continuous_scale='Blues')
-        
-        fig_bar.update_layout(yaxis_title=None, showlegend=False)
-        st.plotly_chart(fig_bar, use_container_width=True)
+    fig_bar.update_layout(yaxis_title=None, xaxis_title="Unidades Vendidas")
+    st.plotly_chart(fig_bar, use_container_width=True)
+
+# TABLA DE VERIFICACIÓN (Solo para ver si los números coinciden)
+with st.expander("Ver tabla de frecuencias (Debug)"):
+    st.write("Datos que está recibiendo el gráfico de Marcas:")
+    st.table(tabla_marcas.sort_values('Ventas', ascending=False))
