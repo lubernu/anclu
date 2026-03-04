@@ -51,6 +51,38 @@ df_selection = df[
     (df['Mes'] == selected_month)     
 ].copy()
 
+# --- MES ANTERIOR ---
+current_month_num = df_selection['Mes_Num'].iloc[0] if len(df_selection) > 0 else 1
+
+prev_month_num = current_month_num - 1
+prev_year = selected_year
+if prev_month_num == 0:
+    prev_month_num = 12
+    prev_year = selected_year - 1
+
+df_prev = df[
+    (df['Año'] == prev_year) & 
+    (df['Mes_Num'] == prev_month_num)
+].copy()
+
+meses_dict = {1:"Enero", 2:"Febrero", 3:"Marzo", 4:"Abril", 5:"Mayo", 6:"Junio",
+              7:"Julio", 8:"Agosto", 9:"Septiembre", 10:"Octubre", 11:"Noviembre", 12:"Diciembre"}
+prev_month_name = meses_dict[prev_month_num]
+
+def delta_html(current, previous):
+    """Retorna HTML con flecha y porcentaje de cambio vs mes anterior."""
+    if previous == 0:
+        return '<div class="delta neutral">— Sin datos previos</div>'
+    diff = current - previous
+    pct  = (diff / previous) * 100
+    if diff > 0:
+        arrow, color, sign = "▲", "#00CC96", "+"
+    elif diff < 0:
+        arrow, color, sign = "▼", "#EF553B", ""
+    else:
+        arrow, color, sign = "►", "#aaaaaa", ""
+    return f'<div class="delta" style="color:{color};">{arrow} {sign}{diff:,} ({sign}{pct:.1f}%) vs {prev_month_name}</div>'
+
 # --- PANEL DE CONTROL PRINCIPAL ---
 st.title(f"🚀 Dashboard de Ventas: {selected_month} {selected_year}")
 
@@ -94,13 +126,30 @@ st.markdown("""
 .card.post   { border-left-color: #636EFA; }
 .card.equip  { border-left-color: #EF553B; }
 .card.asesores { border-left-color: #FECB52; }
+.card .delta {
+    font-size: 14px;
+    margin-top: 8px;
+    font-weight: 600;
+    opacity: 0.95;
+}
+.card .prev-val {
+    font-size: 13px;
+    color: #a8d0f0;
+    margin-top: 2px;
+    opacity: 0.8;
+}
 </style>
-""", unsafe_allow_html=True)
+""", unsafe_allow_html=True)            
 
 total     = len(df_selection)
 postpagos = len(df_selection[df_selection['Producto'] == 'Postpagos'])
 equipos   = len(df_selection[df_selection['Producto'] == 'Equipos'])
 asesores  = df_selection['vendedor'].nunique()
+
+prev_total     = len(df_prev)
+prev_postpagos = len(df_prev[df_prev['Producto'] == 'Postpagos'])
+prev_equipos   = len(df_prev[df_prev['Producto'] == 'Equipos'])
+prev_asesores  = df_prev['vendedor'].nunique() if len(df_prev) > 0 else 0
 
 st.markdown(f"""
 <div class="card-container">
@@ -108,21 +157,29 @@ st.markdown(f"""
         <div class="icon">🛒</div>
         <div class="label">Ventas Totales</div>
         <div class="value">{total:,}</div>
+        {delta_html(total, prev_total)}
+        <div class="prev-val">{prev_month_name}: {prev_total:,}</div>
     </div>
     <div class="card post">
         <div class="icon">📱</div>
         <div class="label">Postpagos</div>
         <div class="value">{postpagos:,}</div>
+        {delta_html(postpagos, prev_postpagos)}
+        <div class="prev-val">{prev_month_name}: {prev_postpagos:,}</div>
     </div>
     <div class="card equip">
         <div class="icon">📦</div>
         <div class="label">Equipos</div>
         <div class="value">{equipos:,}</div>
+        {delta_html(equipos, prev_equipos)}
+        <div class="prev-val">{prev_month_name}: {prev_equipos:,}</div>
     </div>
     <div class="card asesores">
         <div class="icon">👥</div>
         <div class="label">Asesores</div>
         <div class="value">{asesores:,}</div>
+        {delta_html(asesores, prev_asesores)}
+        <div class="prev-val">{prev_month_name}: {prev_asesores:,}</div>
     </div>
 </div>
 """, unsafe_allow_html=True)
@@ -198,7 +255,6 @@ with col_pdv:
 st.markdown("---")
 st.subheader(f"🔡Archivo Detallado")
 st.dataframe(df_selection)
-
 
 
 
