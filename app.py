@@ -245,7 +245,7 @@ col_vend, col_pdv = st.columns([0.6, 0.4])
 with col_vend:
     st.write("**Desempeño por Vendedor**")
     tabla_v = pd.crosstab(df_selection['vendedor'], df_selection['TipoProducto'])
-    st.dataframe(tabla_v.style.background_gradient(cmap='Blues', axis=None), use_container_width=True)
+    st.dataframe(tabla_v.style.background_gradient(cmap='Blues', axis=None),row_height=25, use_container_width=True)
 
 with col_pdv:
     st.write("**Desempeño por Punto de Venta**")
@@ -254,7 +254,7 @@ with col_pdv:
 # --- TABLA RESUMEN ---
 st.markdown("---")
 st.subheader(f"🔡Archivo Detallado")
-st.dataframe(df_selection)
+st.dataframe(df_selection,row_height=25)
 
 
 
