@@ -250,7 +250,7 @@ with col_vend:
 with col_pdv:
     st.write("**Desempeño por Punto de Venta**")
     tabla_p = pd.crosstab(df_selection['centro_costo'], df_selection['TipoProducto'])
-    st.dataframe(tabla_p.style.background_gradient(cmap='Greens', axis=None), use_container_width=True)
+    st.dataframe(tabla_p.style.background_gradient(cmap='Greens', axis=None),row_height=25, use_container_width=True)
 # --- TABLA RESUMEN ---
 st.markdown("---")
 st.subheader(f"🔡Archivo Detallado")
