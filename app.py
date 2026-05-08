@@ -5,7 +5,33 @@ import plotly.express as px
 
 # 1. Configuración de página
 st.set_page_config(page_title="Dashboard Ventas Anclu", layout="wide")
+def check_password():
+    """Retorna True si el usuario ingresó la contraseña correcta."""
+    if "password_correct" not in st.session_state:
+        st.session_state["password_correct"] = False
 
+    if st.session_state["password_correct"]:
+        return True
+
+    # Mostrar formulario de login
+    st.title("🔐 Acceso Restringido")
+    # Intentamos obtener la clave de secrets, si no existe (local), usamos una por defecto
+    password_master = st.secrets.get("password", "LEFCOM2026")
+    
+    password_input = st.text_input("Introduce la contraseña corporativa", type="password")
+    
+    if st.button("Ingresar"):
+        if password_input == password_master:
+            st.session_state["password_correct"] = True
+            st.rerun()
+        else:
+            st.error("🚫 Contraseña incorrecta")
+    return False
+
+# Si no está autenticado, detiene la ejecución aquí
+if not check_password():
+    st.stop()
+    
 @st.cache_data
 def load_data():
     # Carga con parámetros de seguridad para evitar errores de tipo de dato
