@@ -4,4 +4,4 @@ streamlit
 pandas
 numpy
 plotly
-
+starlette<1.4.0
