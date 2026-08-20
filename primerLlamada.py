@@ -12,8 +12,25 @@ def load_data():
     
     df_ventas = pd.read_csv("ventas_anclu.csv", low_memory=False, dtype='str', usecols=columnas_ventas)
     df_rp = pd.read_csv("archivo_Prepago_Anclu.txt", sep=';', low_memory=False, usecols=columnas_rp, dtype='str')
-    df_rp_antiguo = pd.read_csv("Archivo_Prepago_Anclu_Antiguo.txt", sep='\t', low_memory=False, dtype='str')
     
+    # --- MODIFICACIÓN AQUÍ ---
+    # 1. Leer el antiguo con las MISMAS columnas
+    df_rp_antiguo = pd.read_csv("Archivo_Prepago_Anclu_Antiguo.txt", 
+                                sep='\t', 
+                                low_memory=False, 
+                                usecols=columnas_rp,  # <--- AÑADIDO para que coincida
+                                dtype='str')
+    
+    # 2. Unir ambos DataFrames (apilando filas)
+    df_rp = pd.concat([df_rp, df_rp_antiguo], ignore_index=True)
+    
+    # 3. Eliminar duplicados (opción 1: filas idénticas en TODAS las columnas)
+    df_rp = df_rp.drop_duplicates()
+    
+    # (Opcional) Si prefieres eliminar duplicados basándote SOLO en el IMEI:
+    # df_rp = df_rp.drop_duplicates(subset=['IMEI'])
+    # --- FIN MODIFICACIÓN ---
+
     # Limpieza estricta de fechas
     df_ventas['fec_registro'] = pd.to_datetime(df_ventas['fec_registro'], errors='coerce')
     df_ventas = df_ventas.dropna(subset=['fec_registro'])
