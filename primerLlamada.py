@@ -12,7 +12,8 @@ def load_data():
     
     df_ventas = pd.read_csv("ventas_anclu.csv", low_memory=False, dtype='str', usecols=columnas_ventas)
     df_rp = pd.read_csv("archivo_Prepago_Anclu.txt", sep=';', low_memory=False, usecols=columnas_rp, dtype='str')
-
+    df_rp_antiguo = pd.read_csv("Archivo_Prepago_Anclu_Antiguo.txt", sep=';', low_memory=False, usecols=columnas_rp, dtype='str')
+    
     # Limpieza estricta de fechas
     df_ventas['fec_registro'] = pd.to_datetime(df_ventas['fec_registro'], errors='coerce')
     df_ventas = df_ventas.dropna(subset=['fec_registro'])
