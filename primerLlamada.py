@@ -38,7 +38,7 @@ def load_data():
     # Limpieza de textos
     df_ventas['Marca'] = df_ventas['Marca'].fillna('SIN MARCA').astype(str).str.upper().str.strip()
     df_ventas['TipoProducto'] = df_ventas['TipoProducto'].fillna('OTROS').astype(str).str.strip()
-
+    df_ventas = df_ventas[~df_ventas['telefono'].str.contains('HALF SIM', case=False, na=False)]
     # Clasificación lógica
     condicion = df_ventas['TipoProducto'].isin(['Kit Contado', 'Reposición', 'Kit Cuotas'])
     df_ventas['Producto'] = np.where(condicion, 'Equipos', 'Postpagos')  
