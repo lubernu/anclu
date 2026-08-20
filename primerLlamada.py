@@ -25,10 +25,10 @@ def load_data():
     df_rp = pd.concat([df_rp, df_rp_antiguo], ignore_index=True)
     
     # 3. Eliminar duplicados (opción 1: filas idénticas en TODAS las columnas)
-    df_rp = df_rp.drop_duplicates()
+    # df_rp = df_rp.drop_duplicates()
     
     # (Opcional) Si prefieres eliminar duplicados basándote SOLO en el IMEI:
-    # df_rp = df_rp.drop_duplicates(subset=['IMEI'])
+    df_rp = df_rp.drop_duplicates(subset=['IMEI'])
     # --- FIN MODIFICACIÓN ---
 
     # Limpieza estricta de fechas
